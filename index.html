@@ -2130,7 +2130,11 @@
 
         // update hints
         if (state.phase === "main"){
-          $("handHint").textContent = "点击或拖拽卡牌进行操作；手牌超出屏幕时可左右滑动/鼠标滚轮浏览。";
+          if (state.selection.handCardId){
+            $("handHint").textContent = "合成选择中：点击高亮手牌或实验台离子完成合成；点击已选牌可取消。";
+          } else {
+            $("handHint").textContent = "点击或拖拽卡牌进行操作；手牌超出屏幕时可左右滑动/鼠标滚轮浏览。";
+          }
         } else {
           $("handHint").textContent = "等待回合开始结算。";
         }
@@ -2224,6 +2228,14 @@
         });
       }
 
+      function cancelSynthesisSelection(msg){
+        if (!state.selection.handCardId) return;
+        state.selection.handCardId = null;
+        clearHandHighlights();
+        showToast(msg || "已取消合成选择");
+        render();
+      }
+
       const drag = {
         active: false,
         uid: null,
@@ -2301,7 +2313,23 @@
 
           if (!wasDrag){
             // treat as tap/click
-            if (state.selection.handCardId){ return; } // 合成搭档模式不打断
+            if (state.selection.handCardId){
+              // 合成搭档模式：允许“取消”与“改点其他牌继续操作”，避免卡死
+              const selUid = state.selection.handCardId;
+              const isCompat = node.classList.contains("compat");
+              if (d.uid === selUid){
+                cancelSynthesisSelection("已取消：合成选择");
+                openCardAction(d);
+                return;
+              }
+              if (isCompat){
+                // 交给 hand 容器的 click 事件去完成合成
+                return;
+              }
+              cancelSynthesisSelection("已取消：请选择高亮卡牌完成合成");
+              openCardAction(d);
+              return;
+            }
             openCardAction(d);
             return;
           }
